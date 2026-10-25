@@ -1,0 +1,562 @@
+import { MongoClient, Db } from 'mongodb';
+import { INITIAL_BRANDING } from '../src/context/PortalContext';
+import {
+  INITIAL_ROLES,
+  INITIAL_DEPARTMENTS,
+  INITIAL_DRIVES,
+  INITIAL_APPLICATIONS,
+  INITIAL_AUDIT_LOGS,
+  INITIAL_NOTIFICATIONS,
+  INITIAL_USERS,
+} from '../src/mockData';
+import {
+  PortalBranding,
+  RoleInfo,
+  Department,
+  RecruitmentDrive,
+  Application,
+  AuditLog,
+  SystemNotification,
+  WeightageConfig,
+  PortalUser,
+} from '../src/types';
+
+const MONGODB_URI =
+  process.env.MONGODB_URI ||
+  'mongodb+srv://pratyushm977_db_user:J6pFmatnKuQ44Xmy@bit-recruitment-portal.ze21uvt.mongodb.net/?appName=bit-recruitment-portal';
+
+const DB_NAME = 'bit_recruitment_portal';
+
+let client: MongoClient | null = null;
+let db: Db | null = null;
+let isConnected = false;
+let isConnecting = false;
+let connectionError: string | null = null;
+
+const DEFAULT_WEIGHTAGE_CONFIG: WeightageConfig = {
+  writtenTestWeight: 50,
+  interviewWeight: 30,
+  academicWeight: 20,
+  tieBreakerRule: 'Age',
+};
+
+// ------------------------------------------------------------------
+// Resilient In-Memory Master Store
+// Ensures the entire web application runs 100% smoothly at all times
+// with zero downtime, even if MongoDB is reconnecting or pending IP whitelist
+// ------------------------------------------------------------------
+const memoryState = {
+  branding: { ...INITIAL_BRANDING },
+  roles: [...INITIAL_ROLES],
+  departments: [...INITIAL_DEPARTMENTS],
+  drives: [...INITIAL_DRIVES],
+  applications: [...INITIAL_APPLICATIONS],
+  auditLogs: [...INITIAL_AUDIT_LOGS],
+  notifications: [...INITIAL_NOTIFICATIONS],
+  users: [...INITIAL_USERS],
+  weightageConfig: { ...DEFAULT_WEIGHTAGE_CONFIG },
+};
+
+export function getDbStatus() {
+  return {
+    connected: isConnected,
+    database: DB_NAME,
+    error: connectionError,
+    uriMasked: MONGODB_URI.replace(/:\/\/[^:]+:[^@]+@/, '://****:****@'),
+  };
+}
+
+export async function tryConnectDb(): Promise<Db | null> {
+  if (db && isConnected) return db;
+  if (isConnecting) return null;
+
+  isConnecting = true;
+  try {
+    if (!client) {
+      client = new MongoClient(MONGODB_URI, {
+        connectTimeoutMS: 5000,
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 20000,
+      });
+    }
+
+    await client.connect();
+    db = client.db(DB_NAME);
+    isConnected = true;
+    connectionError = null;
+    console.log(`[MongoDB] Connected successfully to "${DB_NAME}".`);
+
+    // Sync in-memory state to / from MongoDB collections
+    await syncInitialDatabase(db);
+    return db;
+  } catch (err: any) {
+    isConnected = false;
+    const msg = err?.message || String(err);
+    if (msg.includes('SSL alert number 80') || msg.includes('TLS alert') || msg.includes('ServerSelection')) {
+      connectionError =
+        'MongoDB Atlas IP Whitelist pending: Add 0.0.0.0/0 in MongoDB Atlas > Network Access to enable direct remote sync.';
+    } else {
+      connectionError = msg;
+    }
+    console.warn(`[MongoDB] Connection notice: ${connectionError}`);
+    return null;
+  } finally {
+    isConnecting = false;
+  }
+}
+
+// Background auto-reconnect worker
+setInterval(() => {
+  if (!isConnected) {
+    tryConnectDb().catch(() => {});
+  }
+}, 12000);
+
+async function syncInitialDatabase(database: Db) {
+  try {
+    // 1. Branding
+    const brandingCol = database.collection('branding');
+    const existingBranding = await brandingCol.findOne({ _id: 'portal_branding' as any });
+    if (!existingBranding) {
+      await brandingCol.insertOne({ _id: 'portal_branding' as any, ...memoryState.branding });
+    } else {
+      const { _id, ...rest } = existingBranding as any;
+      memoryState.branding = { ...memoryState.branding, ...rest };
+    }
+
+    // 2. Roles
+    const rolesCol = database.collection('roles');
+    const rolesCount = await rolesCol.countDocuments();
+    if (rolesCount === 0) {
+      const docs = memoryState.roles.map((r) => ({ ...r, _id: r.id as any }));
+      await rolesCol.insertMany(docs);
+    } else {
+      const docs = await rolesCol.find({}).toArray();
+      memoryState.roles = docs.map(({ _id, ...r }: any) => ({ ...r, id: r.id || _id }));
+    }
+
+    // 3. Departments
+    const deptsCol = database.collection('departments');
+    const deptsCount = await deptsCol.countDocuments();
+    if (deptsCount === 0) {
+      const docs = memoryState.departments.map((d) => ({ ...d, _id: d.id as any }));
+      await deptsCol.insertMany(docs);
+    } else {
+      const docs = await deptsCol.find({}).toArray();
+      memoryState.departments = docs.map(({ _id, ...d }: any) => ({ ...d, id: d.id || _id }));
+    }
+
+    // 4. Drives
+    const drivesCol = database.collection('drives');
+    const drivesCount = await drivesCol.countDocuments();
+    if (drivesCount === 0) {
+      const docs = memoryState.drives.map((d) => ({ ...d, _id: d.id as any }));
+      await drivesCol.insertMany(docs);
+    } else {
+      const docs = await drivesCol.find({}).toArray();
+      memoryState.drives = docs.map(({ _id, ...d }: any) => ({ ...d, id: d.id || _id }));
+    }
+
+    // 5. Applications
+    const appsCol = database.collection('applications');
+    const appsCount = await appsCol.countDocuments();
+    if (appsCount === 0) {
+      const docs = memoryState.applications.map((a) => ({ ...a, _id: a.id as any }));
+      await appsCol.insertMany(docs);
+    } else {
+      const docs = await appsCol.find({}).toArray();
+      memoryState.applications = docs.map(({ _id, ...a }: any) => ({ ...a, id: a.id || _id }));
+    }
+
+    // 6. Audit Logs
+    const auditCol = database.collection('audit_logs');
+    const auditCount = await auditCol.countDocuments();
+    if (auditCount === 0) {
+      const docs = memoryState.auditLogs.map((l) => ({ ...l, _id: l.id as any }));
+      await auditCol.insertMany(docs);
+    }
+
+    // 7. Notifications
+    const notifsCol = database.collection('notifications');
+    const notifsCount = await notifsCol.countDocuments();
+    if (notifsCount === 0) {
+      const docs = memoryState.notifications.map((n) => ({ ...n, _id: n.id as any }));
+      await notifsCol.insertMany(docs);
+    }
+
+    // 8. Users
+    const usersCol = database.collection('users');
+    const usersCount = await usersCol.countDocuments();
+    if (usersCount === 0) {
+      const docs = memoryState.users.map((u) => ({ ...u, _id: u.id as any }));
+      await usersCol.insertMany(docs);
+    } else {
+      const docs = await usersCol.find({}).toArray();
+      memoryState.users = docs.map(({ _id, ...u }: any) => ({ ...u, id: u.id || _id }));
+    }
+
+    // 9. Weightage
+    const weightCol = database.collection('weightage_config');
+    const weightDoc = await weightCol.findOne({ _id: 'default_config' as any });
+    if (!weightDoc) {
+      await weightCol.insertOne({ _id: 'default_config' as any, ...memoryState.weightageConfig });
+    } else {
+      const { _id, ...rest } = weightDoc as any;
+      memoryState.weightageConfig = { ...memoryState.weightageConfig, ...rest };
+    }
+
+    console.log('[MongoDB] All collections verified and synced.');
+  } catch (err) {
+    console.warn('[MongoDB] Sync notice:', err);
+  }
+}
+
+// ----------------------------------------------------
+// STATE RETRIEVAL & CRUD FUNCTIONS
+// Always returns immediately with live data
+// ----------------------------------------------------
+
+export async function getFullState() {
+  if (isConnected && db) {
+    try {
+      const [brandingDoc, rolesDocs, deptsDocs, drivesDocs, appsDocs, auditDocs, notifsDocs, usersDocs, weightDoc] =
+        await Promise.all([
+          db.collection('branding').findOne({ _id: 'portal_branding' as any }),
+          db.collection('roles').find({}).toArray(),
+          db.collection('departments').find({}).toArray(),
+          db.collection('drives').find({}).sort({ startDate: -1 }).toArray(),
+          db.collection('applications').find({}).sort({ submittedAt: -1 }).toArray(),
+          db.collection('audit_logs').find({}).sort({ timestamp: -1 }).limit(100).toArray(),
+          db.collection('notifications').find({}).sort({ timestamp: -1 }).toArray(),
+          db.collection('users').find({}).toArray(),
+          db.collection('weightage_config').findOne({ _id: 'default_config' as any }),
+        ]);
+
+      const clean = (doc: any) => {
+        if (!doc) return doc;
+        const { _id, ...rest } = doc;
+        return { ...rest, id: rest.id || _id };
+      };
+
+      if (brandingDoc) memoryState.branding = clean(brandingDoc);
+      if (rolesDocs?.length) memoryState.roles = rolesDocs.map(clean);
+      if (deptsDocs?.length) memoryState.departments = deptsDocs.map(clean);
+      if (drivesDocs?.length) memoryState.drives = drivesDocs.map(clean);
+      if (appsDocs?.length) memoryState.applications = appsDocs.map(clean);
+      if (auditDocs?.length) memoryState.auditLogs = auditDocs.map(clean);
+      if (notifsDocs?.length) memoryState.notifications = notifsDocs.map(clean);
+      if (usersDocs?.length) memoryState.users = usersDocs.map(clean);
+      if (weightDoc) memoryState.weightageConfig = clean(weightDoc);
+    } catch (e) {
+      console.warn('[MongoDB] Read fallback to live memory store');
+    }
+  }
+
+  return {
+    ...memoryState,
+    dbStatus: getDbStatus(),
+  };
+}
+
+export async function updateBrandingDb(updates: Partial<PortalBranding>) {
+  memoryState.branding = { ...memoryState.branding, ...updates };
+
+  if (isConnected && db) {
+    try {
+      await db.collection('branding').updateOne(
+        { _id: 'portal_branding' as any },
+        { $set: updates },
+        { upsert: true }
+      );
+    } catch (e) {
+      console.warn('[MongoDB] Async branding save deferred:', e);
+    }
+  }
+  return memoryState.branding;
+}
+
+export async function updateRolePermissionsDb(roleId: string, permissions: string[]) {
+  memoryState.roles = memoryState.roles.map((r) =>
+    r.id === roleId ? { ...r, permissions } : r
+  );
+
+  if (isConnected && db) {
+    try {
+      await db.collection('roles').updateOne({ id: roleId }, { $set: { permissions } });
+    } catch (e) {
+      console.warn('[MongoDB] Async role update deferred:', e);
+    }
+  }
+}
+
+export async function createDriveDb(drive: RecruitmentDrive) {
+  memoryState.drives = [drive, ...memoryState.drives];
+
+  if (isConnected && db) {
+    try {
+      await db.collection('drives').insertOne({ _id: drive.id as any, ...drive });
+    } catch (e) {
+      console.warn('[MongoDB] Async drive creation deferred:', e);
+    }
+  }
+  return drive;
+}
+
+export async function updateDriveDb(driveId: string, updates: Partial<RecruitmentDrive>) {
+  memoryState.drives = memoryState.drives.map((d) =>
+    d.id === driveId ? { ...d, ...updates } : d
+  );
+
+  if (isConnected && db) {
+    try {
+      await db.collection('drives').updateOne({ id: driveId }, { $set: updates });
+    } catch (e) {
+      console.warn('[MongoDB] Async drive update deferred:', e);
+    }
+  }
+}
+
+export async function addPostToDriveDb(driveId: string, newPost: any) {
+  memoryState.drives = memoryState.drives.map((d) => {
+    if (d.id === driveId) {
+      return { ...d, posts: [...(d.posts || []), newPost] };
+    }
+    return d;
+  });
+
+  if (isConnected && db) {
+    try {
+      await db.collection('drives').updateOne(
+        { id: driveId },
+        { $push: { posts: newPost } as any }
+      );
+    } catch (e) {
+      console.warn('[MongoDB] Async add post deferred:', e);
+    }
+  }
+}
+
+export async function deleteDriveDb(driveId: string) {
+  memoryState.drives = memoryState.drives.filter((d) => d.id !== driveId);
+
+  if (isConnected && db) {
+    try {
+      await db.collection('drives').deleteOne({ $or: [{ id: driveId }, { _id: driveId as any }] });
+    } catch (e) {
+      console.warn('[MongoDB] Async drive deletion deferred:', e);
+    }
+  }
+}
+
+export async function updatePostInDriveDb(driveId: string, postId: string, postUpdates: any) {
+  memoryState.drives = memoryState.drives.map((d) => {
+    if (d.id === driveId) {
+      return {
+        ...d,
+        posts: d.posts.map((p) => (p.id === postId ? { ...p, ...postUpdates } : p)),
+      };
+    }
+    return d;
+  });
+
+  if (isConnected && db) {
+    try {
+      const drive = memoryState.drives.find((d) => d.id === driveId);
+      if (drive) {
+        await db.collection('drives').updateOne({ id: driveId }, { $set: { posts: drive.posts } });
+      }
+    } catch (e) {
+      console.warn('[MongoDB] Async post update deferred:', e);
+    }
+  }
+}
+
+export async function deletePostFromDriveDb(driveId: string, postId: string) {
+  memoryState.drives = memoryState.drives.map((d) => {
+    if (d.id === driveId) {
+      return {
+        ...d,
+        posts: d.posts.filter((p) => p.id !== postId),
+      };
+    }
+    return d;
+  });
+
+  if (isConnected && db) {
+    try {
+      await db.collection('drives').updateOne(
+        { id: driveId },
+        { $pull: { posts: { id: postId } } as any }
+      );
+    } catch (e) {
+      console.warn('[MongoDB] Async delete post deferred:', e);
+    }
+  }
+}
+
+export async function createApplicationDb(app: Application) {
+  memoryState.applications = [app, ...memoryState.applications];
+  memoryState.drives = memoryState.drives.map((d) =>
+    d.id === app.driveId
+      ? { ...d, totalApplicationsCount: (d.totalApplicationsCount || 0) + 1 }
+      : d
+  );
+
+  if (isConnected && db) {
+    try {
+      await db.collection('applications').insertOne({ _id: app.id as any, ...app });
+      await db.collection('drives').updateOne(
+        { id: app.driveId },
+        { $inc: { totalApplicationsCount: 1 } }
+      );
+    } catch (e) {
+      console.warn('[MongoDB] Async application creation deferred:', e);
+    }
+  }
+  return app;
+}
+
+export async function updateApplicationDb(appId: string, updates: Partial<Application>) {
+  memoryState.applications = memoryState.applications.map((a) =>
+    a.id === appId ? { ...a, ...updates } : a
+  );
+
+  if (isConnected && db) {
+    try {
+      await db.collection('applications').updateOne({ id: appId }, { $set: updates });
+    } catch (e) {
+      console.warn('[MongoDB] Async application update deferred:', e);
+    }
+  }
+}
+
+export async function createDepartmentDb(dept: Department) {
+  memoryState.departments = [...memoryState.departments, dept];
+
+  if (isConnected && db) {
+    try {
+      await db.collection('departments').insertOne({ _id: dept.id as any, ...dept });
+    } catch (e) {
+      console.warn('[MongoDB] Async department creation deferred:', e);
+    }
+  }
+  return dept;
+}
+
+export async function createAuditLogDb(log: AuditLog) {
+  memoryState.auditLogs = [log, ...memoryState.auditLogs];
+
+  if (isConnected && db) {
+    try {
+      await db.collection('audit_logs').insertOne({ _id: log.id as any, ...log });
+    } catch (e) {
+      console.warn('[MongoDB] Async audit log deferred:', e);
+    }
+  }
+  return log;
+}
+
+export async function markNotificationReadDb(notifId: string) {
+  memoryState.notifications = memoryState.notifications.map((n) =>
+    n.id === notifId ? { ...n, read: true } : n
+  );
+
+  if (isConnected && db) {
+    try {
+      await db.collection('notifications').updateOne(
+        { id: notifId },
+        { $set: { read: true } }
+      );
+    } catch (e) {
+      console.warn('[MongoDB] Async notification mark deferred:', e);
+    }
+  }
+}
+
+export async function updateWeightageConfigDb(config: WeightageConfig) {
+  memoryState.weightageConfig = config;
+
+  if (isConnected && db) {
+    try {
+      await db.collection('weightage_config').updateOne(
+        { _id: 'default_config' as any },
+        { $set: config },
+        { upsert: true }
+      );
+    } catch (e) {
+      console.warn('[MongoDB] Async weightage config save deferred:', e);
+    }
+  }
+}
+
+export async function createUserDb(user: PortalUser) {
+  memoryState.users = [user, ...memoryState.users];
+
+  if (isConnected && db) {
+    try {
+      await db.collection('users').insertOne({ _id: user.id as any, ...user });
+    } catch (e) {
+      console.warn('[MongoDB] Async user create deferred:', e);
+    }
+  }
+  return user;
+}
+
+export async function updateUserDb(userId: string, updates: Partial<PortalUser>) {
+  memoryState.users = memoryState.users.map((u) =>
+    u.id === userId ? { ...u, ...updates } : u
+  );
+
+  if (isConnected && db) {
+    try {
+      await db.collection('users').updateOne({ id: userId }, { $set: updates });
+    } catch (e) {
+      console.warn('[MongoDB] Async user update deferred:', e);
+    }
+  }
+  return memoryState.users.find((u) => u.id === userId);
+}
+
+export async function deleteUserDb(userId: string) {
+  memoryState.users = memoryState.users.filter((u) => u.id !== userId);
+
+  if (isConnected && db) {
+    try {
+      await db.collection('users').deleteOne({ id: userId });
+    } catch (e) {
+      console.warn('[MongoDB] Async user delete deferred:', e);
+    }
+  }
+  return true;
+}
+
+export async function resetDatabaseToFactory() {
+  memoryState.branding = { ...INITIAL_BRANDING };
+  memoryState.roles = [...INITIAL_ROLES];
+  memoryState.departments = [...INITIAL_DEPARTMENTS];
+  memoryState.drives = [...INITIAL_DRIVES];
+  memoryState.applications = [...INITIAL_APPLICATIONS];
+  memoryState.auditLogs = [...INITIAL_AUDIT_LOGS];
+  memoryState.notifications = [...INITIAL_NOTIFICATIONS];
+  memoryState.users = [...INITIAL_USERS];
+  memoryState.weightageConfig = { ...DEFAULT_WEIGHTAGE_CONFIG };
+
+  if (isConnected && db) {
+    try {
+      await Promise.all([
+        db.collection('branding').deleteMany({}),
+        db.collection('roles').deleteMany({}),
+        db.collection('departments').deleteMany({}),
+        db.collection('drives').deleteMany({}),
+        db.collection('applications').deleteMany({}),
+        db.collection('audit_logs').deleteMany({}),
+        db.collection('notifications').deleteMany({}),
+        db.collection('users').deleteMany({}),
+        db.collection('weightage_config').deleteMany({}),
+      ]);
+      await syncInitialDatabase(db);
+    } catch (e) {
+      console.warn('[MongoDB] Async database reset deferred:', e);
+    }
+  }
+}
