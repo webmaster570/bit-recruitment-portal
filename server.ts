@@ -30,52 +30,67 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
 
+  app.use((req, res, next) => {
+    if (!req.path.startsWith('/assets')) {
+      console.log(`[Server] ${req.method} ${req.path}`);
+    }
+    next();
+  });
+
   app.use(express.json({ limit: '15mb' }));
 
-  // Blocking database connection on startup to ensure state is ready
-  console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`);
-  try {
-    await tryConnectDb();
-  } catch (err) {
-    console.error('[Server] Critical: Database connection failed on startup.');
-  }
+  // Initial database connection attempt (non-blocking)
+  console.log(`[Server] Environment: ${process.env.NODE_ENV || 'production'}`);
+  tryConnectDb().then(() => {
+    console.log('[Server] Database sync completed or initial attempt finished.');
+  }).catch((err) => {
+    console.error('[Server] Database connection error during startup:', err);
+  });
 
   // ----------------------------------------------------
-  // API ROUTES (Always return valid data with fallback)
+  // API ROUTES
   // ----------------------------------------------------
+  const apiRouter = express.Router();
 
+  // Debug middleware for API
+  apiRouter.use((req, res, next) => {
+    console.log(`[API] ${req.method} ${req.path}`);
+    next();
+  });
+
+  // 0. Diagnostic routes
+  apiRouter.get('/ping', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
+  
   // 1. Health & Database connection status
-  app.get('/api/health', (req, res) => {
+  apiRouter.get('/health', (req, res) => {
     const status = getDbStatus();
     res.json({ status: 'ok', database: status });
   });
 
   // 2. Full State for Real-Time synchronization
-  app.get('/api/state', async (req, res) => {
+  apiRouter.get('/state', async (req, res) => {
     try {
       const state = await getFullState();
       res.json(state);
     } catch (err: any) {
-      console.warn('[API] /api/state warning:', err?.message);
-      // Even on unexpected error, getFullState handles memory fallback
+      console.warn('[API] /api/state error:', err?.message);
       const fallback = await getFullState();
       res.json(fallback);
     }
   });
 
   // 3. Update Branding
-  app.post('/api/branding', async (req, res) => {
+  apiRouter.post('/branding', async (req, res) => {
     try {
       const updated = await updateBrandingDb(req.body);
       res.json({ success: true, branding: updated });
     } catch (err: any) {
-      console.error('[API] /api/branding error:', err);
       res.status(500).json({ success: false, error: err.message });
     }
   });
 
   // 4. Update Role Permissions
-  app.post('/api/roles/permissions', async (req, res) => {
+  apiRouter.post('/roles/permissions', async (req, res) => {
     try {
       const { roleId, permissions } = req.body;
       await updateRolePermissionsDb(roleId, permissions);
@@ -86,7 +101,7 @@ async function startServer() {
   });
 
   // 5. Drives CRUD
-  app.post('/api/drives', async (req, res) => {
+  apiRouter.post('/drives', async (req, res) => {
     try {
       const newDrive = await createDriveDb(req.body);
       res.json({ success: true, drive: newDrive });
@@ -95,7 +110,7 @@ async function startServer() {
     }
   });
 
-  app.put('/api/drives/:id', async (req, res) => {
+  apiRouter.put('/drives/:id', async (req, res) => {
     try {
       await updateDriveDb(req.params.id, req.body);
       res.json({ success: true });
@@ -104,7 +119,7 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/drives/:id', async (req, res) => {
+  apiRouter.delete('/drives/:id', async (req, res) => {
     try {
       await deleteDriveDb(req.params.id);
       res.json({ success: true });
@@ -113,7 +128,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/drives/:id/posts', async (req, res) => {
+  apiRouter.post('/drives/:id/posts', async (req, res) => {
     try {
       await addPostToDriveDb(req.params.id, req.body);
       res.json({ success: true });
@@ -122,7 +137,7 @@ async function startServer() {
     }
   });
 
-  app.put('/api/drives/:driveId/posts/:postId', async (req, res) => {
+  apiRouter.put('/drives/:driveId/posts/:postId', async (req, res) => {
     try {
       await updatePostInDriveDb(req.params.driveId, req.params.postId, req.body);
       res.json({ success: true });
@@ -131,7 +146,7 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/drives/:driveId/posts/:postId', async (req, res) => {
+  apiRouter.delete('/drives/:driveId/posts/:postId', async (req, res) => {
     try {
       await deletePostFromDriveDb(req.params.driveId, req.params.postId);
       res.json({ success: true });
@@ -141,7 +156,7 @@ async function startServer() {
   });
 
   // 6. Applications CRUD & Stages
-  app.post('/api/applications', async (req, res) => {
+  apiRouter.post('/applications', async (req, res) => {
     try {
       const appDoc = await createApplicationDb(req.body);
       res.json({ success: true, application: appDoc });
@@ -150,7 +165,7 @@ async function startServer() {
     }
   });
 
-  app.put('/api/applications/:id', async (req, res) => {
+  apiRouter.put('/applications/:id', async (req, res) => {
     try {
       await updateApplicationDb(req.params.id, req.body);
       res.json({ success: true });
@@ -160,7 +175,7 @@ async function startServer() {
   });
 
   // 7. Departments CRUD
-  app.post('/api/departments', async (req, res) => {
+  apiRouter.post('/departments', async (req, res) => {
     try {
       const dept = await createDepartmentDb(req.body);
       res.json({ success: true, department: dept });
@@ -170,7 +185,7 @@ async function startServer() {
   });
 
   // 8. Audit Logs
-  app.post('/api/audit-logs', async (req, res) => {
+  apiRouter.post('/audit-logs', async (req, res) => {
     try {
       const log = await createAuditLogDb(req.body);
       res.json({ success: true, log });
@@ -180,7 +195,7 @@ async function startServer() {
   });
 
   // 9. Notifications
-  app.put('/api/notifications/:id/read', async (req, res) => {
+  apiRouter.put('/notifications/:id/read', async (req, res) => {
     try {
       await markNotificationReadDb(req.params.id);
       res.json({ success: true });
@@ -190,7 +205,7 @@ async function startServer() {
   });
 
   // 10. Weightage Config
-  app.post('/api/weightage-config', async (req, res) => {
+  apiRouter.post('/weightage-config', async (req, res) => {
     try {
       await updateWeightageConfigDb(req.body);
       res.json({ success: true });
@@ -200,7 +215,7 @@ async function startServer() {
   });
 
   // 11. User Management CRUD
-  app.post('/api/users', async (req, res) => {
+  apiRouter.post('/users', async (req, res) => {
     try {
       const user = await createUserDb(req.body);
       res.json({ success: true, user });
@@ -209,7 +224,7 @@ async function startServer() {
     }
   });
 
-  app.put('/api/users/:id', async (req, res) => {
+  apiRouter.put('/users/:id', async (req, res) => {
     try {
       const updated = await updateUserDb(req.params.id, req.body);
       res.json({ success: true, user: updated });
@@ -218,7 +233,7 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/users/:id', async (req, res) => {
+  apiRouter.delete('/users/:id', async (req, res) => {
     try {
       await deleteUserDb(req.params.id);
       res.json({ success: true });
@@ -228,7 +243,7 @@ async function startServer() {
   });
 
   // 12. Factory Reset Database
-  app.post('/api/reset-data', async (req, res) => {
+  apiRouter.post('/reset-data', async (req, res) => {
     try {
       await resetDatabaseToFactory();
       const freshState = await getFullState();
@@ -240,7 +255,7 @@ async function startServer() {
   });
 
   // 13. Login Authentication
-  app.post('/api/login', async (req, res) => {
+  apiRouter.post('/login', async (req, res) => {
     try {
       const { email, password } = req.body;
       const user = await verifyLoginDb(email, password);
@@ -254,6 +269,12 @@ async function startServer() {
     }
   });
 
+  // Mount API router
+  app.use('/api', apiRouter);
+
+  // Global ping for diagnostics
+  app.get('/ping', (req, res) => res.send('pong'));
+
   // ----------------------------------------------------
   // VITE OR STATIC ASSETS MIDDLEWARE
   // ----------------------------------------------------
@@ -264,8 +285,14 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    // If running from dist/server.cjs, __dirname is the dist folder itself.
+    // If running from server.ts in the root, __dirname is the root and we need to look in dist/
+    const isBundled = __filename.endsWith('.cjs') || __dirname.endsWith('dist');
+    const distPath = isBundled ? __dirname : path.join(__dirname, 'dist');
+    
+    console.log(`[Server] Static assets path: ${distPath}`);
     app.use(express.static(distPath));
+    
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });

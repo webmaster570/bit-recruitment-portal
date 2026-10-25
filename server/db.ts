@@ -66,6 +66,11 @@ export function getDbStatus() {
     isConnecting,
     env: process.env.NODE_ENV || 'development',
     hasUri: !!process.env.MONGODB_URI,
+    memorySummary: {
+      drives: memoryState.drives.length,
+      apps: memoryState.applications.length,
+      users: memoryState.users.length,
+    }
   };
 }
 
@@ -85,11 +90,16 @@ export async function tryConnectDb(): Promise<Db | null> {
   isConnecting = true;
   try {
     console.log('[MongoDB] Attempting connection...');
+    console.log(`[MongoDB] Using URI: ${process.env.MONGODB_URI ? 'Environment Variable' : 'Hardcoded Fallback'}`);
+    
     if (!client) {
       client = new MongoClient(MONGODB_URI, {
-        connectTimeoutMS: 10000,
-        serverSelectionTimeoutMS: 10000,
-        socketTimeoutMS: 30000,
+        connectTimeoutMS: 20000,
+        serverSelectionTimeoutMS: 20000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        minPoolSize: 1,
+        retryWrites: true,
       });
     }
 
@@ -208,12 +218,10 @@ async function syncInitialDatabase(database: Db) {
       await notifsCol.insertMany(docs);
     }
 
-    // 8. Users
+    console.log('[MongoDB] 8. Syncing users...');
     const usersCol = database.collection('users');
     const usersCount = await usersCol.countDocuments();
     
-    // MIGRATION: Ensure all existing users have a password field
-    // This addresses the user's report that password columns are missing in MongoDB
     try {
       await usersCol.updateMany(
         { 
@@ -233,19 +241,17 @@ async function syncInitialDatabase(database: Db) {
       const docs = memoryState.users.map((u) => ({ ...u, _id: u.id as any }));
       await usersCol.insertMany(docs);
     } else {
-      // Ensure specific system users (like superadmin) exist even if the collection isn't empty
       for (const initialUser of INITIAL_USERS) {
         const exists = await usersCol.findOne({ email: initialUser.email });
         if (!exists) {
           await usersCol.insertOne({ ...initialUser, _id: initialUser.id as any });
         }
       }
-      
       const docs = await usersCol.find({}).toArray();
       memoryState.users = docs.map(({ _id, ...u }: any) => ({ ...u, id: u.id || _id }));
     }
 
-    // 9. Weightage
+    console.log('[MongoDB] 9. Syncing weightage...');
     const weightCol = database.collection('weightage_config');
     const weightDoc = await weightCol.findOne({ _id: 'default_config' as any });
     if (!weightDoc) {
@@ -257,7 +263,7 @@ async function syncInitialDatabase(database: Db) {
 
     console.log('[MongoDB] All collections verified and synced.');
   } catch (err) {
-    console.warn('[MongoDB] Sync notice:', err);
+    console.warn('[MongoDB] Sync process encountered a notice (possible timeout):', err);
   }
 }
 

@@ -396,10 +396,14 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await fetchAction();
       } catch (err: any) {
         console.warn('[PortalContext] Real-time background sync warning:', err?.message || err);
+        let errorMsg = err?.message || 'Connecting to MongoDB...';
+        if (errorMsg.includes('404')) {
+          errorMsg = 'API Route Not Found (HTTP 404). The server might be restarting or misconfigured. Please check the backend logs.';
+        }
         setMongoStatus((prev) => ({
           ...prev,
           connected: false,
-          error: err?.message || 'Connecting to MongoDB...',
+          error: errorMsg,
         }));
       }
     }
