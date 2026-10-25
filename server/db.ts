@@ -63,6 +63,9 @@ export function getDbStatus() {
     database: DB_NAME,
     error: connectionError,
     uriMasked: MONGODB_URI.replace(/:\/\/[^:]+:[^@]+@/, '://****:****@'),
+    isConnecting,
+    env: process.env.NODE_ENV || 'development',
+    hasUri: !!process.env.MONGODB_URI,
   };
 }
 
@@ -102,13 +105,16 @@ export async function tryConnectDb(): Promise<Db | null> {
   } catch (err: any) {
     isConnected = false;
     const msg = err?.message || String(err);
+    console.error(`[MongoDB] Connection failed detail:`, err);
     if (msg.includes('SSL alert number 80') || msg.includes('TLS alert') || msg.includes('ServerSelection')) {
       connectionError =
         'MongoDB Atlas IP Whitelist pending: Add 0.0.0.0/0 in MongoDB Atlas > Network Access to enable direct remote sync.';
+    } else if (msg.includes('ENOTFOUND') || msg.includes('ETIMEDOUT')) {
+      connectionError = `Network / DNS error: ${msg}. Check if your MongoDB cluster URL is correct and accessible.`;
     } else {
       connectionError = msg;
     }
-    console.error(`[MongoDB] Connection error: ${connectionError}`);
+    console.error(`[MongoDB] Connection error summary: ${connectionError}`);
     return null;
   } finally {
     isConnecting = false;

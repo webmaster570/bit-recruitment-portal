@@ -61,6 +61,8 @@ interface PortalContextType {
   users: PortalUser[];
   auditLogs: AuditLog[];
   notifications: SystemNotification[];
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
   selectedDriveId: string | null;
   setSelectedDriveId: (id: string | null) => void;
   weightageConfig: WeightageConfig;
@@ -179,6 +181,7 @@ const loadInitialState = <T,>(key: string, fallback: T): T => {
 export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => loadInitialState('isLoggedIn', false));
   const [currentUser, setCurrentUser] = useState<UserSession | null>(() => loadInitialState('currentUser', null));
+  const [activeTab, setActiveTabState] = useState<string>(() => loadInitialState('activeTab', 'public_recruitment'));
   const [allowDevRoleSelector, setAllowDevRoleSelector] = useState<boolean>(false);
   const [currentRole, setCurrentRole] = useState<UserRole>(() => loadInitialState('currentRole', 'super_admin'));
   const [roles, setRoles] = useState<RoleInfo[]>(() => loadInitialState('roles', INITIAL_ROLES));
@@ -188,8 +191,11 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [users, setUsers] = useState<PortalUser[]>(() => loadInitialState('users', INITIAL_USERS));
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => loadInitialState('auditLogs', INITIAL_AUDIT_LOGS));
   const [notifications, setNotifications] = useState<SystemNotification[]>(INITIAL_NOTIFICATIONS);
-  const [selectedDriveId, setSelectedDriveId] = useState<string | null>('drive-2026-01');
+  const [selectedDriveId, setSelectedDriveId] = useState<string | null>(() => loadInitialState('selectedDriveId', 'drive-2026-01'));
   
+  const setActiveTab = useCallback((tab: string) => {
+    setActiveTabState(tab);
+  }, []);
   const [weightageConfig, setWeightageConfigState] = useState<WeightageConfig>({
     writtenTestWeight: 50,
     interviewWeight: 30,
@@ -422,12 +428,14 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           isLoggedIn,
           currentUser,
           currentRole,
+          activeTab,
+          selectedDriveId,
         })
       );
     } catch (e) {
       console.warn('Failed to save state locally:', e);
     }
-  }, [drives, applications, departments, auditLogs, roles, branding, users, isLoggedIn, currentUser, currentRole]);
+  }, [drives, applications, departments, auditLogs, roles, branding, users, isLoggedIn, currentUser, currentRole, activeTab, selectedDriveId]);
 
   const updateBranding = (updates: Partial<PortalBranding>) => {
     const next = { ...branding, ...updates };
@@ -506,6 +514,8 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsLoggedIn(true);
     setCurrentUser(session);
     setCurrentRole(role);
+    if (role === 'applicant') setActiveTabState('applicant_portal');
+    else setActiveTabState('overview');
     logAudit('USER_LOGIN', 'Security', `User logged in via Quick-Switch as ${role.toUpperCase()} (${session.email})`);
   };
 
@@ -1446,6 +1456,8 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       value={{
         isLoggedIn,
         currentUser,
+        activeTab,
+        setActiveTab,
         allowDevRoleSelector,
         currentRole,
         roles,

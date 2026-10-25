@@ -50,19 +50,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   const handleQuickRoleSelect = (roleId: UserRole) => {
     setSelectedRole(roleId);
-    if (roleId === 'applicant') {
-      setEmail('aarav.sharma@example.com');
-      setPassword('pass123');
-    } else if (roleId === 'super_admin') {
-      setEmail('superadmin@univ.edu');
-      setPassword('pass123');
-    } else if (roleId === 'recruitment_admin') {
-      setEmail('recruitment.admin@univ.edu');
-      setPassword('pass123');
-    } else {
-      // Default mock password for others
-      setPassword('pass123');
-    }
+    setError('');
   };
 
   return (
@@ -99,7 +87,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           )}
 
           {/* Dev Mode Role Selector */}
-          {allowDevRoleSelector && (
+          {allowDevRoleSelector && !(import.meta as any).env?.PROD && (
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
               <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
                 <span className="flex items-center gap-1 text-purple-700">
@@ -151,11 +139,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="registered.email@domain.com"
+                placeholder="superadmin@univ.edu"
                 className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                 required
               />
             </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Hint: Use <strong>superadmin@univ.edu</strong> for system administration.
+            </p>
           </div>
 
           {/* Password */}

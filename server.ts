@@ -272,7 +272,7 @@ async function startServer() {
   }
 
   if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
-    app.listen(PORT, '0.0.0.0', () => {
+    app.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`[Server] Recruitment Portal Server running on http://0.0.0.0:${PORT}`);
     });
   }
