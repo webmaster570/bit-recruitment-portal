@@ -27,7 +27,14 @@ const MainAppContent: React.FC = () => {
   const theme = THEME_CONFIGS[branding.theme || 'classic'];
 
   // Public recruitment portal is the default view page of the portal
-  const [activeTab, setActiveTab] = useState<string>('public_recruitment');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('recruitment_portal_active_tab');
+      return saved || 'public_recruitment';
+    } catch (e) {
+      return 'public_recruitment';
+    }
+  });
 
   // Mobile navigation drawer state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -38,6 +45,7 @@ const MainAppContent: React.FC = () => {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    localStorage.setItem('recruitment_portal_active_tab', tab);
     setIsMobileMenuOpen(false); // Auto close mobile drawer on tab navigation
   };
 

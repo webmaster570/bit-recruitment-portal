@@ -177,10 +177,10 @@ const loadInitialState = <T,>(key: string, fallback: T): T => {
 };
 
 export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => loadInitialState('isLoggedIn', false));
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(() => loadInitialState('currentUser', null));
   const [allowDevRoleSelector, setAllowDevRoleSelector] = useState<boolean>(false);
-  const [currentRole, setCurrentRole] = useState<UserRole>('super_admin');
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => loadInitialState('currentRole', 'super_admin'));
   const [roles, setRoles] = useState<RoleInfo[]>(() => loadInitialState('roles', INITIAL_ROLES));
   const [drives, setDrives] = useState<RecruitmentDrive[]>(() => loadInitialState('drives', INITIAL_DRIVES));
   const [applications, setApplications] = useState<Application[]>(() => loadInitialState('applications', INITIAL_APPLICATIONS));
@@ -419,12 +419,15 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           roles,
           branding,
           users,
+          isLoggedIn,
+          currentUser,
+          currentRole,
         })
       );
     } catch (e) {
       console.warn('Failed to save state locally:', e);
     }
-  }, [drives, applications, departments, auditLogs, roles, branding, users]);
+  }, [drives, applications, departments, auditLogs, roles, branding, users, isLoggedIn, currentUser, currentRole]);
 
   const updateBranding = (updates: Partial<PortalBranding>) => {
     const next = { ...branding, ...updates };

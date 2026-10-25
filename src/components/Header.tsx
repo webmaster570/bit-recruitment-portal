@@ -49,6 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
     markNotificationRead,
     branding,
     logout,
+    allowDevRoleSelector,
   } = usePortal();
 
   const theme = THEME_CONFIGS[branding.theme || 'classic'];
