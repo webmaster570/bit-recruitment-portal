@@ -15,14 +15,7 @@ import {
   ServerTransactionToast,
 } from '../types';
 
-export const INITIAL_BRANDING: PortalBranding = {
-  title: 'National University Recruitment Portal',
-  subtitle: 'Centralized Public Job Advertisements & Merit Application System',
-  logoType: 'icon',
-  logoIconName: 'Building2',
-  logoImageUrl: '',
-  theme: 'classic',
-};
+import { INITIAL_BRANDING, DEFAULT_WEIGHTAGE_CONFIG } from '../constants';
 
 import {
   INITIAL_ROLES,
@@ -161,11 +154,12 @@ interface PortalContextType {
 
 const PortalContext = createContext<PortalContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = 'recruitment_portal_state_v1';
+const LOCAL_STORAGE_KEY = 'recruitment_portal_data_v1';
+const AUTH_STORAGE_KEY = 'recruitment_portal_auth_v1';
 
-const loadInitialState = <T,>(key: string, fallback: T): T => {
+const loadInitialState = <T,>(key: string, fallback: T, storageKey = LOCAL_STORAGE_KEY): T => {
   try {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed[key] !== undefined && parsed[key] !== null) {
@@ -173,17 +167,17 @@ const loadInitialState = <T,>(key: string, fallback: T): T => {
       }
     }
   } catch (e) {
-    console.warn(`Failed to parse ${key} from localStorage:`, e);
+    console.warn(`Failed to parse ${key} from ${storageKey}:`, e);
   }
   return fallback;
 };
 
 export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => loadInitialState('isLoggedIn', false));
-  const [currentUser, setCurrentUser] = useState<UserSession | null>(() => loadInitialState('currentUser', null));
-  const [activeTab, setActiveTabState] = useState<string>(() => loadInitialState('activeTab', 'public_recruitment'));
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => loadInitialState('isLoggedIn', false, AUTH_STORAGE_KEY));
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(() => loadInitialState('currentUser', null, AUTH_STORAGE_KEY));
+  const [activeTab, setActiveTabState] = useState<string>(() => loadInitialState('activeTab', 'public_recruitment', AUTH_STORAGE_KEY));
   const [allowDevRoleSelector, setAllowDevRoleSelector] = useState<boolean>(false);
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => loadInitialState('currentRole', 'super_admin'));
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => loadInitialState('currentRole', 'super_admin', AUTH_STORAGE_KEY));
   const [roles, setRoles] = useState<RoleInfo[]>(() => loadInitialState('roles', INITIAL_ROLES));
   const [drives, setDrives] = useState<RecruitmentDrive[]>(() => loadInitialState('drives', INITIAL_DRIVES));
   const [applications, setApplications] = useState<Application[]>(() => loadInitialState('applications', INITIAL_APPLICATIONS));
@@ -196,12 +190,7 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const setActiveTab = useCallback((tab: string) => {
     setActiveTabState(tab);
   }, []);
-  const [weightageConfig, setWeightageConfigState] = useState<WeightageConfig>({
-    writtenTestWeight: 50,
-    interviewWeight: 30,
-    academicWeight: 20,
-    tieBreakerRule: 'Age',
-  });
+  const [weightageConfig, setWeightageConfigState] = useState<WeightageConfig>(DEFAULT_WEIGHTAGE_CONFIG);
   const [branding, setBranding] = useState<PortalBranding>(() => loadInitialState('branding', INITIAL_BRANDING));
 
   const [mongoStatus, setMongoStatus] = useState<MongoDbStatus>({
@@ -416,7 +405,24 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => clearInterval(interval);
   }, [refreshFromDatabase]);
 
-  // Keep backup in localStorage
+  // Keep auth session in dedicated storage
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({
+          isLoggedIn,
+          currentUser,
+          currentRole,
+          activeTab,
+        })
+      );
+    } catch (e) {
+      console.warn('Failed to save auth state locally:', e);
+    }
+  }, [isLoggedIn, currentUser, currentRole, activeTab]);
+
+  // Keep data backup in localStorage
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -429,17 +435,13 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           roles,
           branding,
           users,
-          isLoggedIn,
-          currentUser,
-          currentRole,
-          activeTab,
           selectedDriveId,
         })
       );
     } catch (e) {
-      console.warn('Failed to save state locally:', e);
+      console.warn('Failed to save data state locally:', e);
     }
-  }, [drives, applications, departments, auditLogs, roles, branding, users, isLoggedIn, currentUser, currentRole, activeTab, selectedDriveId]);
+  }, [drives, applications, departments, auditLogs, roles, branding, users, selectedDriveId]);
 
   const updateBranding = (updates: Partial<PortalBranding>) => {
     const next = { ...branding, ...updates };

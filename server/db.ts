@@ -1,5 +1,5 @@
 import { MongoClient, Db } from 'mongodb';
-import { INITIAL_BRANDING } from '../src/context/PortalContext';
+import { INITIAL_BRANDING, DEFAULT_WEIGHTAGE_CONFIG } from '../src/constants';
 import {
   INITIAL_ROLES,
   INITIAL_DEPARTMENTS,
@@ -33,12 +33,6 @@ let isConnected = false;
 let isConnecting = false;
 let connectionError: string | null = null;
 
-const DEFAULT_WEIGHTAGE_CONFIG: WeightageConfig = {
-  writtenTestWeight: 50,
-  interviewWeight: 30,
-  academicWeight: 20,
-  tieBreakerRule: 'Age',
-};
 
 // ------------------------------------------------------------------
 // Resilient In-Memory Master Store

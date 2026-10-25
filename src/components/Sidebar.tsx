@@ -25,6 +25,8 @@ import {
   GraduationCap,
   ShieldCheck,
   ChevronRight,
+  Database,
+  Activity,
 } from 'lucide-react';
 import { THEME_CONFIGS } from '../themeStyles';
 
@@ -45,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenLogin,
   onOpenRegister,
 }) => {
-  const { currentRole, roles, isLoggedIn, currentUser, branding, logout } = usePortal();
+  const { currentRole, roles, isLoggedIn, currentUser, branding, logout, mongoStatus } = usePortal();
 
   const theme = THEME_CONFIGS[branding.theme || 'classic'];
   const currentRoleInfo = roles.find((r) => r.id === currentRole);
@@ -267,15 +269,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Role Scope Card Footer */}
       {isLoggedIn ? (
-        <div className="p-3.5 border border-indigo-100 bg-gradient-to-br from-indigo-50/70 to-purple-50/40 m-2.5 rounded-2xl text-xs shadow-xs shrink-0">
-          <div className="flex items-center space-x-2 mb-1 text-slate-900 font-bold">
-            <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="truncate">{currentRoleInfo?.name}</span>
+        <div className="p-3.5 border border-indigo-100 bg-gradient-to-br from-indigo-50/70 to-purple-50/40 m-2.5 rounded-2xl text-xs shadow-xs shrink-0 space-y-2.5">
+          <div>
+            <div className="flex items-center space-x-2 mb-1 text-slate-900 font-bold">
+              <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="truncate">{currentRoleInfo?.name}</span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-snug">
+              {currentRoleInfo?.description}
+            </p>
           </div>
-          <p className="text-[11px] text-slate-500 leading-snug">
-            {currentRoleInfo?.description}
-          </p>
-          <div className="mt-2 text-[10px] text-slate-500 flex items-center justify-between border-t border-indigo-100/80 pt-2">
+
+          {(currentRole === 'super_admin' || currentRole === 'recruitment_admin') && (
+            <div 
+              className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer transition hover:scale-101 ${
+                mongoStatus.connected 
+                  ? 'bg-emerald-50/50 border-emerald-200' 
+                  : 'bg-amber-50/50 border-amber-200'
+              }`}
+              onClick={() => setActiveTab('admin')}
+              title="View Detailed System Health"
+            >
+              <div className="flex items-center space-x-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${mongoStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <span className={`text-[10px] font-black uppercase tracking-tight ${mongoStatus.connected ? 'text-emerald-800' : 'text-amber-800'}`}>
+                  System: {mongoStatus.connected ? 'Healthy' : 'Connecting'}
+                </span>
+              </div>
+              <Activity className={`w-3 h-3 ${mongoStatus.connected ? 'text-emerald-500' : 'text-amber-500'}`} />
+            </div>
+          )}
+
+          <div className="text-[10px] text-slate-500 flex items-center justify-between border-t border-indigo-100/80 pt-2">
             <span>Permissions:</span>
             <span className="text-indigo-700 font-mono font-bold bg-white px-2 py-0.5 rounded-full border border-indigo-200 shadow-2xs">
               {currentRoleInfo?.permissions.length} Active

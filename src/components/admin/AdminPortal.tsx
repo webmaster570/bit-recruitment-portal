@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { usePortal, INITIAL_BRANDING } from '../../context/PortalContext';
+import { usePortal } from '../../context/PortalContext';
+import { INITIAL_BRANDING } from '../../constants';
 import { UserRole, PortalUser } from '../../types';
 import { THEME_CONFIGS } from '../../themeStyles';
 import {
@@ -341,7 +342,7 @@ export const AdminPortal: React.FC = () => {
             { id: 'rbac', label: 'RBAC Roles', icon: Key, count: roles.length, color: 'from-amber-500 to-orange-600' },
             { id: 'departments', label: 'Departments', icon: Building2, count: departments.length, color: 'from-blue-500 to-cyan-600' },
             { id: 'email', label: 'Email / SMS', icon: Mail, count: undefined, color: 'from-emerald-500 to-teal-600' },
-            { id: 'system', label: 'System Backup', icon: Database, count: undefined, color: 'from-indigo-600 to-purple-800' },
+            { id: 'system', label: 'System Status', icon: Database, count: undefined, color: 'from-indigo-600 to-purple-800' },
           ].map((t) => {
             const Icon = t.icon;
             const isActive = activeAdminTab === t.id;
@@ -1574,7 +1575,10 @@ export const AdminPortal: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="text-sm font-bold text-slate-900">MongoDB Atlas Database (Primary & Real-Time)</h3>
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>MongoDB Atlas Database</span>
+                      <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-mono border border-slate-200">Production Engine</span>
+                    </h3>
                     {mongoStatus.connected ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse"></span>
@@ -1615,14 +1619,25 @@ export const AdminPortal: React.FC = () => {
             </div>
 
             {mongoStatus.error && !mongoStatus.connected && (
-              <div className="p-3 bg-amber-100/80 border border-amber-200 rounded-xl text-amber-900 text-xs font-medium space-y-1">
-                <div className="flex items-center space-x-1.5 font-bold">
-                  <Activity className="w-4 h-4 text-amber-700" />
-                  <span>MongoDB Atlas Network Notice:</span>
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs space-y-2.5">
+                <div className="flex items-center space-x-2 font-black text-amber-800 uppercase tracking-tight">
+                  <Activity className="w-4 h-4" />
+                  <span>Connectivity Troubleshooting Guide</span>
                 </div>
-                <p className="text-[11px] leading-relaxed text-amber-800">
-                  {mongoStatus.error}
-                </p>
+                <div className="space-y-1.5 text-[11px] leading-relaxed text-amber-900/80">
+                  <p>
+                    <strong className="text-amber-950 underline decoration-amber-300 underline-offset-2">Critical Action Required:</strong> Even with a valid <code className="bg-amber-100 px-1 rounded text-amber-900">MONGODB_URI</code>, Atlas will block connections from Vercel unless the <strong>IP Access List</strong> is configured.
+                  </p>
+                  <div className="bg-white/50 p-2.5 rounded-lg border border-amber-200 font-medium space-y-1">
+                    <p>1. Go to <strong>MongoDB Atlas Dashboard</strong> &gt; <strong>Network Access</strong>.</p>
+                    <p>2. Click <strong>+ Add IP Address</strong>.</p>
+                    <p>3. Select <strong>Allow Access from Anywhere</strong> (sets IP to <code className="bg-amber-100 px-1 rounded">0.0.0.0/0</code>).</p>
+                    <p>4. Save and wait 1-2 minutes, then click &quot;Sync Database State&quot; below.</p>
+                  </div>
+                  <p className="italic text-[10px] mt-1 opacity-75 font-semibold">
+                    Error Detail: {mongoStatus.error}
+                  </p>
+                </div>
               </div>
             )}
 
