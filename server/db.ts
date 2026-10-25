@@ -261,6 +261,16 @@ async function syncInitialDatabase(database: Db) {
       memoryState.weightageConfig = { ...memoryState.weightageConfig, ...rest };
     }
 
+    // 10. Indexes
+    console.log('[MongoDB] 10. Ensuring indexes...');
+    await Promise.all([
+      database.collection('users').createIndex({ email: 1 }, { unique: true }),
+      database.collection('users').createIndex({ id: 1 }),
+      database.collection('drives').createIndex({ id: 1 }),
+      database.collection('applications').createIndex({ id: 1 }),
+      database.collection('applications').createIndex({ applicationNo: 1 }, { unique: true }),
+    ]).catch(err => console.warn('[MongoDB] Index creation notice (some may already exist):', err.message));
+
     console.log('[MongoDB] All collections verified and synced.');
   } catch (err) {
     console.warn('[MongoDB] Sync process encountered a notice (possible timeout):', err);
@@ -409,7 +419,10 @@ export async function updateDriveDb(driveId: string, updates: Partial<Recruitmen
 
   try {
     const database = await ensureDb();
-    await database.collection('drives').updateOne({ id: driveId }, { $set: updates });
+    await database.collection('drives').updateOne(
+      { $or: [{ id: driveId }, { _id: driveId as any }] },
+      { $set: updates }
+    );
   } catch (e) {
     console.error('[MongoDB] Drive update failed:', e);
     throw e;
@@ -427,7 +440,7 @@ export async function addPostToDriveDb(driveId: string, newPost: any) {
   try {
     const database = await ensureDb();
     await database.collection('drives').updateOne(
-      { id: driveId },
+      { $or: [{ id: driveId }, { _id: driveId as any }] },
       { $push: { posts: newPost } as any }
     );
   } catch (e) {
@@ -463,7 +476,10 @@ export async function updatePostInDriveDb(driveId: string, postId: string, postU
     const database = await ensureDb();
     const drive = memoryState.drives.find((d) => d.id === driveId);
     if (drive) {
-      await database.collection('drives').updateOne({ id: driveId }, { $set: { posts: drive.posts } });
+      await database.collection('drives').updateOne(
+        { $or: [{ id: driveId }, { _id: driveId as any }] },
+        { $set: { posts: drive.posts } }
+      );
     }
   } catch (e) {
     console.error('[MongoDB] Post update failed:', e);
@@ -485,7 +501,7 @@ export async function deletePostFromDriveDb(driveId: string, postId: string) {
   try {
     const database = await ensureDb();
     await database.collection('drives').updateOne(
-      { id: driveId },
+      { $or: [{ id: driveId }, { _id: driveId as any }] },
       { $pull: { posts: { id: postId } } as any }
     );
   } catch (e) {
@@ -506,7 +522,7 @@ export async function createApplicationDb(app: Application) {
     const database = await ensureDb();
     await database.collection('applications').insertOne({ _id: app.id as any, ...app });
     await database.collection('drives').updateOne(
-      { id: app.driveId },
+      { $or: [{ id: app.driveId }, { _id: app.driveId as any }] },
       { $inc: { totalApplicationsCount: 1 } }
     );
   } catch (e) {
@@ -523,7 +539,10 @@ export async function updateApplicationDb(appId: string, updates: Partial<Applic
 
   try {
     const database = await ensureDb();
-    await database.collection('applications').updateOne({ id: appId }, { $set: updates });
+    await database.collection('applications').updateOne(
+      { $or: [{ id: appId }, { _id: appId as any }] },
+      { $set: updates }
+    );
   } catch (e) {
     console.error('[MongoDB] Application update failed:', e);
     throw e;
@@ -563,7 +582,7 @@ export async function markNotificationReadDb(notifId: string) {
   try {
     const database = await ensureDb();
     await database.collection('notifications').updateOne(
-      { id: notifId },
+      { $or: [{ id: notifId }, { _id: notifId as any }] },
       { $set: { read: true } }
     );
   } catch (e) {
@@ -608,7 +627,10 @@ export async function updateUserDb(userId: string, updates: Partial<PortalUser>)
 
   try {
     const database = await ensureDb();
-    await database.collection('users').updateOne({ id: userId }, { $set: updates });
+    await database.collection('users').updateOne(
+      { $or: [{ id: userId }, { _id: userId as any }] },
+      { $set: updates }
+    );
   } catch (e) {
     console.error('[MongoDB] User update failed:', e);
     throw e;
@@ -621,7 +643,7 @@ export async function deleteUserDb(userId: string) {
 
   try {
     const database = await ensureDb();
-    await database.collection('users').deleteOne({ id: userId });
+    await database.collection('users').deleteOne({ $or: [{ id: userId }, { _id: userId as any }] });
   } catch (e) {
     console.error('[MongoDB] User deletion failed:', e);
     throw e;

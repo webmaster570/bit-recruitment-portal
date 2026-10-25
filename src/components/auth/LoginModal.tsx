@@ -86,40 +86,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </div>
           )}
 
-          {/* Dev Mode Role Selector */}
-          {allowDevRoleSelector && !(import.meta as any).env?.PROD && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                <span className="flex items-center gap-1 text-purple-700">
-                  <Shield className="w-3.5 h-3.5" />
-                  Development Role Selector
-                </span>
-                <span className="text-[9px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-mono">
-                  Dev Mode Active
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 leading-tight">
-                Super admin toggle allows selecting login role directly during evaluation.
-              </p>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Select Role to Authenticate As:
-                </label>
-                <select
-                  value={selectedRole}
-                  onChange={(e) => handleQuickRoleSelect(e.target.value as UserRole)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 shadow-2xs"
-                >
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} — ({r.description})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
+          {/* Dev Mode Role Selector removed for production */}
 
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">

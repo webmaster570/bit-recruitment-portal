@@ -285,16 +285,32 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // If running from dist/server.cjs, __dirname is the dist folder itself.
-    // If running from server.ts in the root, __dirname is the root and we need to look in dist/
-    const isBundled = __filename.endsWith('.cjs') || __dirname.endsWith('dist');
-    const distPath = isBundled ? __dirname : path.join(__dirname, 'dist');
+    // More robust path resolution for Vercel lambdas and local execution
+    let distPath = '';
+    if (__filename.endsWith('.cjs')) {
+      // Bundled output in dist/server.cjs
+      distPath = __dirname;
+    } else if (__dirname.includes('api')) {
+      // Running from api/index.ts source
+      distPath = path.join(__dirname, '..', 'dist');
+    } else {
+      // Running from root server.ts
+      distPath = path.join(__dirname, 'dist');
+    }
     
-    console.log(`[Server] Static assets path: ${distPath}`);
+    console.log(`[Server] Detected distPath: ${distPath}`);
+    console.log(`[Server] __dirname: ${__dirname}`);
+    
     app.use(express.static(distPath));
     
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error(`[Server] Error sending index.html from ${indexPath}:`, err);
+          res.status(404).send('Static assets not found. Please run "npm run build" first.');
+        }
+      });
     });
   }
 
@@ -307,5 +323,11 @@ async function startServer() {
   return app;
 }
 
+// For Vercel, we need to export the app itself or a promise of it
 export const appPromise = startServer();
-export default startServer;
+
+// Standard Vercel Node.js handler
+export default async (req: any, res: any) => {
+  const app = await appPromise;
+  return app(req, res);
+};

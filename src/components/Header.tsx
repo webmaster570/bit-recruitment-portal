@@ -18,6 +18,7 @@ import {
   Globe,
   Menu,
   X,
+  Lock,
 } from 'lucide-react';
 import { THEME_CONFIGS } from '../themeStyles';
 import { ChangePasswordModal } from './auth/ChangePasswordModal';
@@ -273,32 +274,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </button>
                     </div>
 
-                    {currentRole === 'super_admin' && allowDevRoleSelector && (
-                      <>
-                        <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-t border-slate-100 pt-1 mt-1">
-                          Switch Role (Dev Mode)
-                        </div>
-                        {roles.map((role) => (
-                          <button
-                            key={role.id}
-                            onClick={() => {
-                              switchRole(role.id as UserRole);
-                              setShowRoleDropdown(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition ${
-                              currentRole === role.id
-                                ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-bold shadow-xs'
-                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                            }`}
-                          >
-                            <div>
-                              <div className="font-semibold">{role.name}</div>
-                            </div>
-                            {currentRole === role.id && <CheckCircle className="w-4 h-4 text-white" />}
-                          </button>
-                        ))}
-                      </>
-                    )}
+                    {/* Dev role selector removed for production stability */}
                   </div>
                 )}
               </div>
