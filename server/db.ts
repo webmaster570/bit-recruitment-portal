@@ -21,9 +21,12 @@ import {
   PortalUser,
 } from '../src/types';
 
-const MONGODB_URI =
-  process.env.MONGODB_URI ||
-  'mongodb+srv://pratyushm977_db_user:J6pFmatnKuQ44Xmy@bit-recruitment-portal.ze21uvt.mongodb.net/?appName=bit-recruitment-portal';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error('[MongoDB] FATAL ERROR: MONGODB_URI environment variable is missing.');
+  console.error('[MongoDB] Please ensure MONGODB_URI is defined in your environment (Vercel Secrets or .env file).');
+}
 
 const DB_NAME = 'bit_recruitment_portal';
 
@@ -90,9 +93,12 @@ export async function tryConnectDb(): Promise<Db | null> {
   isConnecting = true;
   try {
     console.log('[MongoDB] Attempting connection...');
-    console.log(`[MongoDB] Using URI: ${process.env.MONGODB_URI ? 'Environment Variable' : 'Hardcoded Fallback'}`);
+    console.log(`[MongoDB] Using URI from Environment Variable: ${process.env.MONGODB_URI ? 'Detected' : 'Missing'}`);
     
     if (!client) {
+      if (!MONGODB_URI) {
+        throw new Error('MONGODB_URI is not defined in environment variables.');
+      }
       client = new MongoClient(MONGODB_URI, {
         connectTimeoutMS: 20000,
         serverSelectionTimeoutMS: 20000,
