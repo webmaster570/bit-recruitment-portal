@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { UserRole } from '../../types';
-import { X, LogIn, Shield, Sparkles, User, Lock, Mail, AlertCircle } from 'lucide-react';
+import { X, LogIn, Shield, Sparkles, User, Lock, Mail, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -18,37 +18,51 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onLoginSuccess,
   targetPostTitle,
 }) => {
-  const { roles, allowDevRoleSelector, login } = usePortal();
+  const { roles, allowDevRoleSelector, secureLogin } = usePortal();
 
   const [selectedRole, setSelectedRole] = useState<UserRole>('applicant');
-  const [email, setEmail] = useState('applicant@university.edu.in');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) {
-      setError('Please enter your email or registration number.');
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter your credentials.');
       return;
     }
     setError('');
+    setIsSubmitting(true);
 
-    // Call login with selected role
-    login(selectedRole, email);
-    onLoginSuccess(selectedRole);
-    onClose();
+    // Call secureLogin
+    const success = await secureLogin(email, password);
+    if (success) {
+      onLoginSuccess('super_admin' as any); // The exact role will be set in context
+      onClose();
+    } else {
+      setError('Invalid email or password. Please try again.');
+    }
+    setIsSubmitting(false);
   };
 
   const handleQuickRoleSelect = (roleId: UserRole) => {
     setSelectedRole(roleId);
-    if (roleId === 'applicant') setEmail('applicant@university.edu.in');
-    else if (roleId === 'super_admin') setEmail('admin@university.edu.in');
-    else if (roleId === 'screening_committee') setEmail('screening@university.edu.in');
-    else if (roleId === 'doc_verifier') setEmail('dvo@university.edu.in');
-    else if (roleId === 'interview_panel') setEmail('panelist@university.edu.in');
-    else if (roleId === 'finance_admin') setEmail('finance@university.edu.in');
+    if (roleId === 'applicant') {
+      setEmail('aarav.sharma@example.com');
+      setPassword('pass123');
+    } else if (roleId === 'super_admin') {
+      setEmail('superadmin@univ.edu');
+      setPassword('pass123');
+    } else if (roleId === 'recruitment_admin') {
+      setEmail('recruitment.admin@univ.edu');
+      setPassword('pass123');
+    } else {
+      // Default mock password for others
+      setPassword('pass123');
+    }
   };
 
   return (
@@ -162,13 +176,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </div>
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
-            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white font-bold text-xs shadow-md transition flex items-center justify-center space-x-2"
+            disabled={isSubmitting}
+            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white font-bold text-xs shadow-md transition flex items-center justify-center space-x-2 disabled:opacity-50"
           >
-            <LogIn className="w-4 h-4" />
-            <span>Sign In to Dashboard</span>
+            {isSubmitting ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <LogIn className="w-4 h-4" />
+            )}
+            <span>{isSubmitting ? 'Signing In...' : 'Sign In to Dashboard'}</span>
           </button>
 
           {/* Footer Switcher */}

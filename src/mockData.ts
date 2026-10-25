@@ -577,6 +577,7 @@ export const INITIAL_USERS: PortalUser[] = [
     createdAt: '2025-12-01T09:00:00Z',
     lastLoginAt: '2026-08-14T08:30:00Z',
     notes: 'Primary System Root SuperAdmin',
+    password: 'pass123',
   },
   {
     id: 'usr-rec-01',
@@ -591,6 +592,7 @@ export const INITIAL_USERS: PortalUser[] = [
     createdAt: '2026-01-05T10:00:00Z',
     lastLoginAt: '2026-08-13T16:45:00Z',
     notes: 'In-charge of Faculty & Non-Teaching Advertisements',
+    password: 'pass123',
   },
   {
     id: 'usr-off-01',
@@ -604,6 +606,7 @@ export const INITIAL_USERS: PortalUser[] = [
     status: 'active',
     createdAt: '2026-01-08T11:00:00Z',
     lastLoginAt: '2026-08-12T14:20:00Z',
+    password: 'pass123',
   },
   {
     id: 'usr-dept-01',
@@ -617,6 +620,7 @@ export const INITIAL_USERS: PortalUser[] = [
     status: 'active',
     createdAt: '2026-01-10T12:00:00Z',
     lastLoginAt: '2026-08-11T11:15:00Z',
+    password: 'pass123',
   },
   {
     id: 'usr-scr-01',
@@ -630,6 +634,7 @@ export const INITIAL_USERS: PortalUser[] = [
     status: 'active',
     createdAt: '2026-01-12T14:00:00Z',
     lastLoginAt: '2026-08-10T09:40:00Z',
+    password: 'pass123',
   },
   {
     id: 'usr-pan-01',
@@ -643,6 +648,7 @@ export const INITIAL_USERS: PortalUser[] = [
     status: 'active',
     createdAt: '2026-01-15T15:00:00Z',
     lastLoginAt: '2026-08-09T17:10:00Z',
+    password: 'pass123',
   },
   {
     id: 'usr-dvo-01',
@@ -656,6 +662,7 @@ export const INITIAL_USERS: PortalUser[] = [
     status: 'active',
     createdAt: '2026-01-18T10:30:00Z',
     lastLoginAt: '2026-08-08T15:00:00Z',
+    password: 'pass123',
   },
   {
     id: 'usr-fin-01',
@@ -669,6 +676,7 @@ export const INITIAL_USERS: PortalUser[] = [
     status: 'active',
     createdAt: '2026-01-20T11:45:00Z',
     lastLoginAt: '2026-08-07T13:20:00Z',
+    password: 'pass123',
   },
   {
     id: 'usr-app-01',
@@ -682,6 +690,7 @@ export const INITIAL_USERS: PortalUser[] = [
     createdAt: '2026-01-22T10:15:00Z',
     lastLoginAt: '2026-08-14T01:00:00Z',
     notes: 'Candidate registered for Drive RD-2026-UNIV-01',
+    password: 'pass123',
   },
 ];
 

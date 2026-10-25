@@ -46,6 +46,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
       mobile,
       category,
       dob,
+      password,
     });
 
     onRegisterSuccess();

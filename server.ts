@@ -23,6 +23,7 @@ import {
   updateUserDb,
   deleteUserDb,
   resetDatabaseToFactory,
+  verifyLoginDb,
 } from './server/db';
 
 async function startServer() {
@@ -235,6 +236,21 @@ async function startServer() {
     } catch (err: any) {
       const freshState = await getFullState();
       res.json({ success: true, state: freshState });
+    }
+  });
+
+  // 13. Login Authentication
+  app.post('/api/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      const user = await verifyLoginDb(email, password);
+      if (user) {
+        res.json({ success: true, user });
+      } else {
+        res.status(401).json({ success: false, error: 'Invalid email or password.' });
+      }
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 

@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { THEME_CONFIGS } from '../themeStyles';
+import { ChangePasswordModal } from './auth/ChangePasswordModal';
 
 interface HeaderProps {
   activeTab: string;
@@ -54,6 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showNotifPopover, setShowNotifPopover] = useState(false);
+  const [isChangePassOpen, setIsChangePassOpen] = useState(false);
 
   const activeRoleObj = roles.find((r) => r.id === currentRole);
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -257,10 +259,23 @@ export const Header: React.FC<HeaderProps> = ({
                       </span>
                     </div>
 
-                    {currentRole === 'super_admin' && (
+                    <div className="p-1 space-y-1">
+                      <button
+                        onClick={() => {
+                          setShowRoleDropdown(false);
+                          setIsChangePassOpen(true);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center space-x-2 text-slate-700 hover:bg-slate-100 transition"
+                      >
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Change Password</span>
+                      </button>
+                    </div>
+
+                    {currentRole === 'super_admin' && allowDevRoleSelector && (
                       <>
                         <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-t border-slate-100 pt-1 mt-1">
-                          Switch Role
+                          Switch Role (Dev Mode)
                         </div>
                         {roles.map((role) => (
                           <button
@@ -303,6 +318,11 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
       </div>
+
+      <ChangePasswordModal 
+        isOpen={isChangePassOpen} 
+        onClose={() => setIsChangePassOpen(false)} 
+      />
     </header>
   );
 };

@@ -89,6 +89,7 @@ export const AdminPortal: React.FC = () => {
   const [userFormMobile, setUserFormMobile] = useState('');
   const [userFormStatus, setUserFormStatus] = useState<'active' | 'inactive' | 'suspended'>('active');
   const [userFormNotes, setUserFormNotes] = useState('');
+  const [userFormPassword, setUserFormPassword] = useState('');
   const [userFormError, setUserFormError] = useState<string | null>(null);
 
   // Branding Form State
@@ -177,6 +178,7 @@ export const AdminPortal: React.FC = () => {
     setUserFormMobile('');
     setUserFormStatus('active');
     setUserFormNotes('');
+    setUserFormPassword('pass123'); // Default password for new users
     setUserFormError(null);
     setIsUserModalOpen(true);
   };
@@ -191,6 +193,7 @@ export const AdminPortal: React.FC = () => {
     setUserFormMobile(user.mobile || '');
     setUserFormStatus(user.status);
     setUserFormNotes(user.notes || '');
+    setUserFormPassword(user.password || 'pass123');
     setUserFormError(null);
     setIsUserModalOpen(true);
   };
@@ -230,6 +233,7 @@ export const AdminPortal: React.FC = () => {
         mobile: userFormMobile.trim() || undefined,
         status: userFormStatus,
         notes: userFormNotes.trim() || undefined,
+        password: userFormPassword.trim() || undefined,
       });
       setUserActionNotice(`User account "${trimmedName}" updated successfully.`);
     } else {
@@ -242,6 +246,7 @@ export const AdminPortal: React.FC = () => {
         mobile: userFormMobile.trim() || undefined,
         status: userFormStatus,
         notes: userFormNotes.trim() || undefined,
+        password: userFormPassword.trim() || 'pass123',
       });
       setUserActionNotice(`New user "${trimmedName}" created and assigned [${userFormRole}] role.`);
     }
@@ -936,6 +941,26 @@ export const AdminPortal: React.FC = () => {
                       </select>
                     </div>
 
+                    {/* Password Management */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                        Login Password <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          required
+                          value={userFormPassword}
+                          onChange={(e) => setUserFormPassword(e.target.value)}
+                          placeholder="Set user password"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 font-mono focus:bg-white focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
                     {/* Internal Notes */}
                     <div>
                       <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">

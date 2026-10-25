@@ -205,10 +205,36 @@ async function syncInitialDatabase(database: Db) {
     // 8. Users
     const usersCol = database.collection('users');
     const usersCount = await usersCol.countDocuments();
+    
+    // MIGRATION: Ensure all existing users have a password field
+    // This addresses the user's report that password columns are missing in MongoDB
+    try {
+      await usersCol.updateMany(
+        { 
+          $or: [
+            { password: { $exists: false } }, 
+            { password: "" }, 
+            { password: null }
+          ] 
+        },
+        { $set: { password: 'pass123' } }
+      );
+    } catch (err) {
+      console.warn('[MongoDB] User password migration notice:', err);
+    }
+
     if (usersCount === 0) {
       const docs = memoryState.users.map((u) => ({ ...u, _id: u.id as any }));
       await usersCol.insertMany(docs);
     } else {
+      // Ensure specific system users (like superadmin) exist even if the collection isn't empty
+      for (const initialUser of INITIAL_USERS) {
+        const exists = await usersCol.findOne({ email: initialUser.email });
+        if (!exists) {
+          await usersCol.insertOne({ ...initialUser, _id: initialUser.id as any });
+        }
+      }
+      
       const docs = await usersCol.find({}).toArray();
       memoryState.users = docs.map(({ _id, ...u }: any) => ({ ...u, id: u.id || _id }));
     }
@@ -275,6 +301,49 @@ export async function getFullState() {
     ...memoryState,
     dbStatus: getDbStatus(),
   };
+}
+
+export async function verifyLoginDb(email: string, password: string): Promise<PortalUser | null> {
+  const cleanEmail = (email || '').trim();
+  const escapedEmail = cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  let user: PortalUser | null = null;
+
+  // 1. Try to find in MongoDB first if connected
+  if (isConnected && db) {
+    try {
+      const doc = await db.collection('users').findOne({ 
+        email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') } 
+      });
+      if (doc) {
+        const { _id, ...rest } = doc;
+        user = { ...rest, id: rest.id || _id } as PortalUser;
+      }
+    } catch (e) {
+      console.warn('[MongoDB] Login lookup failed, falling back to memory');
+    }
+  }
+
+  // 2. Fallback to memory state
+  if (!user) {
+    user = memoryState.users.find(u => u.email.toLowerCase() === cleanEmail.toLowerCase()) || null;
+  }
+
+  // 3. Verify password (simple check for now, can be hashed later)
+  if (user) {
+    const userPassword = user.password || 'pass123'; // Default fallback if still missing
+    if (userPassword === password) {
+      // Update last login
+      const lastLoginAt = new Date().toISOString();
+      if (isConnected && db) {
+        db.collection('users').updateOne({ email: user.email }, { $set: { lastLoginAt } }).catch(() => {});
+      }
+      user.lastLoginAt = lastLoginAt;
+      return user;
+    }
+  }
+
+  return null;
 }
 
 export async function updateBrandingDb(updates: Partial<PortalBranding>) {

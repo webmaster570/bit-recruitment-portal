@@ -85,6 +85,7 @@ interface PortalContextType {
   ) => Promise<T | null>;
 
   login: (role: UserRole, email: string, name?: string, regNumber?: string) => void;
+  secureLogin: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   registerApplicant: (profile: {
     fullName: string;
@@ -92,6 +93,7 @@ interface PortalContextType {
     mobile: string;
     category: 'UR' | 'OBC' | 'SC' | 'ST' | 'EWS';
     dob: string;
+    password?: string;
   }) => { regNumber: string };
   toggleDevRoleSelector: (allow?: boolean) => void;
 
@@ -152,6 +154,7 @@ interface PortalContextType {
   logAudit: (action: string, module: AuditLog['module'], details: string) => void;
   markNotificationRead: (id: string) => void;
   resetToDemoData: () => void;
+  changePassword: (newPassword: string) => Promise<boolean>;
 }
 
 const PortalContext = createContext<PortalContextType | undefined>(undefined);
@@ -176,7 +179,7 @@ const loadInitialState = <T,>(key: string, fallback: T): T => {
 export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
-  const [allowDevRoleSelector, setAllowDevRoleSelector] = useState<boolean>(true);
+  const [allowDevRoleSelector, setAllowDevRoleSelector] = useState<boolean>(false);
   const [currentRole, setCurrentRole] = useState<UserRole>('super_admin');
   const [roles, setRoles] = useState<RoleInfo[]>(() => loadInitialState('roles', INITIAL_ROLES));
   const [drives, setDrives] = useState<RecruitmentDrive[]>(() => loadInitialState('drives', INITIAL_DRIVES));
@@ -500,7 +503,39 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsLoggedIn(true);
     setCurrentUser(session);
     setCurrentRole(role);
-    logAudit('USER_LOGIN', 'Security', `User logged in as ${role.toUpperCase()} (${session.email})`);
+    logAudit('USER_LOGIN', 'Security', `User logged in via Quick-Switch as ${role.toUpperCase()} (${session.email})`);
+  };
+
+  const secureLogin = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Login failed.');
+      }
+
+      const { user } = await res.json();
+      const session: UserSession = {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        regNumber: user.regNumber,
+      };
+
+      setIsLoggedIn(true);
+      setCurrentUser(session);
+      setCurrentRole(user.role);
+      logAudit('SECURE_LOGIN', 'Security', `Successful secure login for ${user.email} (${user.role.toUpperCase()})`);
+      return true;
+    } catch (err: any) {
+      console.warn('[PortalContext] Secure login failed:', err.message);
+      return false;
+    }
   };
 
   const logout = () => {
@@ -515,8 +550,21 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     mobile: string;
     category: 'UR' | 'OBC' | 'SC' | 'ST' | 'EWS';
     dob: string;
+    password?: string;
   }) => {
     const regNum = `REG-2026-${Math.floor(10000 + Math.random() * 90000)}`;
+    
+    // Persist the applicant as a user
+    addUser({
+      name: profile.fullName,
+      email: profile.email,
+      role: 'applicant',
+      mobile: profile.mobile,
+      regNumber: regNum,
+      status: 'active',
+      password: profile.password || 'pass123',
+    });
+
     const session: UserSession = {
       name: profile.fullName,
       email: profile.email,
@@ -1374,6 +1422,22 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     logAudit('SYSTEM_RESET', 'Admin', 'Reset recruitment database state to factory demo state.');
   };
 
+  const changePassword = async (newPassword: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    
+    // Find full user object to get ID
+    const userObj = users.find(u => u.email === currentUser.email);
+    if (!userObj) return false;
+
+    try {
+      await updateUser(userObj.id, { password: newPassword });
+      logAudit('PASSWORD_CHANGED', 'Security', `User ${currentUser.email} changed their own login password.`);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
   return (
     <PortalContext.Provider
       value={{
@@ -1403,6 +1467,7 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         clearAllTransactionToasts,
         runDbTransaction,
         login,
+        secureLogin,
         logout,
         registerApplicant,
         toggleDevRoleSelector,
@@ -1430,6 +1495,7 @@ export const PortalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         logAudit,
         markNotificationRead,
         resetToDemoData,
+        changePassword,
       }}
     >
       {children}

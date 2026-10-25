@@ -42,6 +42,7 @@ export interface PortalUser {
   lastLoginAt?: string;
   regNumber?: string;
   notes?: string;
+  password?: string;
 }
 
 export type ApplicationStage =
