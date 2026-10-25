@@ -31,8 +31,13 @@ async function startServer() {
 
   app.use(express.json({ limit: '15mb' }));
 
-  // Non-blocking database connection kickoff
-  tryConnectDb().catch(() => {});
+  // Blocking database connection on startup to ensure state is ready
+  console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`);
+  try {
+    await tryConnectDb();
+  } catch (err) {
+    console.error('[Server] Critical: Database connection failed on startup.');
+  }
 
   // ----------------------------------------------------
   // API ROUTES (Always return valid data with fallback)
@@ -63,7 +68,8 @@ async function startServer() {
       const updated = await updateBrandingDb(req.body);
       res.json({ success: true, branding: updated });
     } catch (err: any) {
-      res.json({ success: true, branding: req.body });
+      console.error('[API] /api/branding error:', err);
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -74,7 +80,7 @@ async function startServer() {
       await updateRolePermissionsDb(roleId, permissions);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -84,7 +90,7 @@ async function startServer() {
       const newDrive = await createDriveDb(req.body);
       res.json({ success: true, drive: newDrive });
     } catch (err: any) {
-      res.json({ success: true, drive: req.body });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -93,7 +99,7 @@ async function startServer() {
       await updateDriveDb(req.params.id, req.body);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -102,7 +108,7 @@ async function startServer() {
       await deleteDriveDb(req.params.id);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -111,7 +117,7 @@ async function startServer() {
       await addPostToDriveDb(req.params.id, req.body);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -120,7 +126,7 @@ async function startServer() {
       await updatePostInDriveDb(req.params.driveId, req.params.postId, req.body);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -129,7 +135,7 @@ async function startServer() {
       await deletePostFromDriveDb(req.params.driveId, req.params.postId);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -139,7 +145,7 @@ async function startServer() {
       const appDoc = await createApplicationDb(req.body);
       res.json({ success: true, application: appDoc });
     } catch (err: any) {
-      res.json({ success: true, application: req.body });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -148,7 +154,7 @@ async function startServer() {
       await updateApplicationDb(req.params.id, req.body);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -158,7 +164,7 @@ async function startServer() {
       const dept = await createDepartmentDb(req.body);
       res.json({ success: true, department: dept });
     } catch (err: any) {
-      res.json({ success: true, department: req.body });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -178,7 +184,7 @@ async function startServer() {
       await markNotificationReadDb(req.params.id);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -188,7 +194,7 @@ async function startServer() {
       await updateWeightageConfigDb(req.body);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -198,7 +204,7 @@ async function startServer() {
       const user = await createUserDb(req.body);
       res.json({ success: true, user });
     } catch (err: any) {
-      res.json({ success: true, user: req.body });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -207,7 +213,7 @@ async function startServer() {
       const updated = await updateUserDb(req.params.id, req.body);
       res.json({ success: true, user: updated });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -216,7 +222,7 @@ async function startServer() {
       await deleteUserDb(req.params.id);
       res.json({ success: true });
     } catch (err: any) {
-      res.json({ success: true });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 

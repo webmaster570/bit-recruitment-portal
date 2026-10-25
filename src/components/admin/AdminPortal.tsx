@@ -1024,9 +1024,22 @@ export const AdminPortal: React.FC = () => {
                   <Palette className="w-5 h-5 text-purple-600" />
                   Website Navbar & Logo Customization
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Update the official university logo, website main title, and subtitle text displayed across all portal headers.
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-xs text-slate-500">
+                    Update the official university logo, website main title, and subtitle text displayed across all portal headers.
+                  </p>
+                  {mongoStatus.connected ? (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Sync
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                      <div className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                      Local-Only
+                    </span>
+                  )}
+                </div>
               </div>
 
               {brandingSavedNotice && (
